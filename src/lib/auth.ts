@@ -14,7 +14,7 @@ export const auth = betterAuth({
     // Add social providers here if needed later
   },
   secret: process.env.BETTER_AUTH_SECRET!,
-  baseURL: process.env.BETTER_AUTH_URL!, // Should be your Leapcell backend URL
+  baseURL: process.env.BETTER_AUTH_URL!, // Your Leapcell backend URL
   trustedOrigins: [process.env.FRONTEND_URL!], // Your Vercel frontend URL
   
   session: {
@@ -26,14 +26,13 @@ export const auth = betterAuth({
     },
   },
   
-  // CRITICAL: Configure cookies for cross-origin
-  advanced: {
-    cookieOptions: {
-      sameSite: 'none', // Required for cross-origin
-      secure: true, // Required when sameSite is 'none'
-      httpOnly: true,
-      path: '/',
-      domain: undefined, // Let browser handle it
-    },
+  // Cookie configuration at root level
+  cookie: {
+    name: 'better-auth.session_token',
+    sameSite: 'none', // Required for cross-origin
+    secure: true, // Required when sameSite is 'none'
+    httpOnly: true,
+    path: '/',
+    // domain: '.yourdomain.com', // Optional: only if both apps share a parent domain
   },
 });
