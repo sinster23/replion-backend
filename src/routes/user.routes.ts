@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { requireAuth } from '../middleware/auth.middleware';
+import { requireAuth, AuthenticatedRequest } from '../middleware/auth.middleware';
 import { prisma } from '../lib/prisma';
 
 const router = Router();
@@ -7,8 +7,9 @@ const router = Router();
 // Get current user profile (protected route)
 router.get('/me', requireAuth, async (req: Request, res: Response) => {
   try {
+    const authReq = req as AuthenticatedRequest;
     const user = await prisma.user.findUnique({
-      where: { id: req.user!.id },
+      where: { id: authReq.user.id },
       select: {
         id: true,
         email: true,
@@ -43,10 +44,11 @@ router.get('/me', requireAuth, async (req: Request, res: Response) => {
 // Update user profile (protected route)
 router.patch('/me', requireAuth, async (req: Request, res: Response) => {
   try {
+    const authReq = req as AuthenticatedRequest;
     const { name, image } = req.body;
 
     const updatedUser = await prisma.user.update({
-      where: { id: req.user!.id },
+      where: { id: authReq.user.id },
       data: {
         ...(name && { name }),
         ...(image && { image }),
@@ -79,8 +81,9 @@ router.patch('/me', requireAuth, async (req: Request, res: Response) => {
 // Delete user account (protected route)
 router.delete('/me', requireAuth, async (req: Request, res: Response) => {
   try {
+    const authReq = req as AuthenticatedRequest;
     await prisma.user.delete({
-      where: { id: req.user!.id },
+      where: { id: authReq.user.id },
     });
 
     return res.json({
