@@ -1,0 +1,323 @@
+// prisma/schema.prisma - Enhanced version
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ------------------------------------------------------
+// USER + AUTH MODELS
+// ------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  plan          UserPlan  @default(FREE)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  accounts      Account[]
+  sessions      Session[]
+  automations   Automation[]
+  integrations  Integration[]
+  keywords      Keyword[]
+  responses     AutoResponse[]
+}
+
+enum UserPlan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  expiresAt DateTime
+  token     String   @unique
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                String   @id @default(cuid())
+  userId            String
+  accountId         String
+  providerId        String
+  accessToken       String?
+  refreshToken      String?
+  idToken           String?
+  accessTokenExpiresAt DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope             String?
+  password          String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([providerId, accountId])
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  @@unique([identifier, value])
+}
+
+// ------------------------------------------------------
+// PLATFORM INTEGRATIONS
+// ------------------------------------------------------
+
+enum PlatformType {
+  INSTAGRAM
+  TIKTOK
+  TWITTER
+  FACEBOOK
+  LINKEDIN
+  YOUTUBE
+}
+
+model Integration {
+  id            String       @id @default(cuid())
+  userId        String
+  platform      PlatformType @default(INSTAGRAM)
+  username      String?
+  accessToken   String?
+  refreshToken  String?
+  platformId    String?
+  isActive      Boolean      @default(true)
+  lastSynced    DateTime?
+  metadata      Json?
+  expiresAt     DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  user          User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  automations   Automation[]
+  posts         InstagramPost[]
+  
+  @@unique([userId, platform, platformId])
+  @@index([userId])
+  @@index([platform])
+}
+
+// ------------------------------------------------------
+// INSTAGRAM SPECIFIC MODELS
+// ------------------------------------------------------
+
+model InstagramPost {
+  id              String       @id @default(cuid())
+  integrationId   String
+  postId          String       @unique // Instagram media ID
+  caption         String?
+  mediaType       String       // IMAGE, VIDEO, CAROUSEL
+  mediaUrl        String?
+  permalink       String?
+  timestamp       DateTime?
+  likesCount      Int          @default(0)
+  commentsCount   Int          @default(0)
+  isMonitored     Boolean      @default(false)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  integration     Integration  @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  triggers        AutomationTrigger[]
+  
+  @@index([integrationId])
+  @@index([isMonitored])
+}
+
+// ------------------------------------------------------
+// KEYWORD & RESPONSE SYSTEM
+// ------------------------------------------------------
+
+model Keyword {
+  id              String    @id @default(cuid())
+  userId          String
+  keyword         String
+  matchType       MatchType @default(CONTAINS)
+  isActive        Boolean   @default(true)
+  caseSensitive   Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  triggers        AutomationTrigger[]
+  
+  @@index([userId])
+  @@index([keyword])
+}
+
+enum MatchType {
+  EXACT
+  CONTAINS
+  STARTS_WITH
+  ENDS_WITH
+  REGEX
+}
+
+model AutoResponse {
+  id              String       @id @default(cuid())
+  userId          String
+  name            String
+  responseType    ResponseType @default(CUSTOM)
+  customMessage   String?
+  aiPrompt        String?
+  isActive        Boolean      @default(true)
+  useCount        Int          @default(0)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  triggers        AutomationTrigger[]
+  
+  @@index([userId])
+}
+
+enum ResponseType {
+  CUSTOM         // Direct custom message
+  AI_GENERATED   // AI-powered response (Pro plan)
+  TEMPLATE       // Pre-built template
+}
+
+// ------------------------------------------------------
+// AUTOMATIONS
+// ------------------------------------------------------
+
+enum AutomationType {
+  COMMENT_TO_DM       // Monitor comments, send DM when keyword matches
+  COMMENT_REPLY       // Reply to comments directly
+  DM_REPLY            // Reply to incoming DMs
+  AUTO_LIKE
+  AUTO_FOLLOW
+  AUTO_COMMENT
+  AUTO_UNFOLLOW
+  SCHEDULED_POST
+  STORY_VIEW
+}
+
+enum AutomationStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  FAILED
+}
+
+model Automation {
+  id                  String            @id @default(cuid())
+  userId              String
+  integrationId       String
+  name                String
+  description         String?
+  type                AutomationType
+  status              AutomationStatus  @default(PAUSED)
+  
+  config              Json
+  
+  startDate           DateTime?
+  endDate             DateTime?
+  schedule            Json?
+  
+  dailyLimit          Int?
+  hourlyLimit         Int?
+  
+  totalExecutions     Int               @default(0)
+  successfulExecutions Int              @default(0)
+  failedExecutions    Int               @default(0)
+  lastExecutedAt      DateTime?
+  
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  
+  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  integration         Integration       @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  triggers            AutomationTrigger[]
+  logs                AutomationLog[]
+  
+  @@index([userId])
+  @@index([integrationId])
+  @@index([status])
+}
+
+// ------------------------------------------------------
+// AUTOMATION TRIGGERS
+// ------------------------------------------------------
+
+enum TriggerType {
+  POST_COMMENT      // When someone comments on a post
+  POST_DM           // When someone DMs about a post
+  KEYWORD_MATCH     // When keyword is matched
+  HASHTAG           // When specific hashtag is used
+  MENTION           // When account is mentioned
+}
+
+model AutomationTrigger {
+  id              String       @id @default(cuid())
+  automationId    String
+  triggerType     TriggerType
+  
+  // Optional relations
+  postId          String?
+  keywordId       String?
+  responseId      String?
+  
+  // Trigger configuration
+  config          Json?
+  isActive        Boolean      @default(true)
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  automation      Automation   @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  post            InstagramPost? @relation(fields: [postId], references: [id], onDelete: Cascade)
+  keyword         Keyword?      @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+  response        AutoResponse? @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  
+  @@index([automationId])
+  @@index([triggerType])
+}
+
+// ------------------------------------------------------
+// LOGS
+// ------------------------------------------------------
+
+enum LogStatus {
+  SUCCESS
+  FAILED
+  SKIPPED
+}
+
+model AutomationLog {
+  id              String      @id @default(cuid())
+  automationId    String
+  action          String
+  targetId        String?
+  targetUsername  String?
+  targetType      String?     // comment, dm, post
+  status          LogStatus
+  message         String?
+  responseText    String?     // The actual response sent
+  metadata        Json?
+  executedAt      DateTime    @default(now())
+  
+  automation      Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  
+  @@index([automationId])
+  @@index([executedAt])
+  @@index([status])
+}
