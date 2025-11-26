@@ -42,8 +42,8 @@ A comprehensive backend API for automating Instagram interactions including comm
 
 1. **Clone the repository**
 ```bash
-git clone <repository-url>
-cd backend
+git clone https://github.com/sinster23/replion-backend
+cd replion-backend
 ```
 
 2. **Install dependencies**
