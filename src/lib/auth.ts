@@ -30,10 +30,10 @@ export const auth = betterAuth({
     defaultCookieAttributes: {
       sameSite: 'none', // Required for cross-site
       secure: true, // Required when sameSite is 'none' (HTTPS only)
+      httpOnly: true, // Security best practice
+      path: '/',
       maxAge: 60 * 60 * 24 * 7, // 7 days
-    },
-    crossSubDomainCookies: {
-      enabled: true, // Allow cookies across subdomains if needed
+      domain: undefined, // Critical: Don't set domain for cross-origin cookies
     },
   },
 });
