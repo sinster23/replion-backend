@@ -27,11 +27,15 @@ export const auth = betterAuth({
   
   // Cross-site cookie configuration
   advanced: {
+    crossSubDomainCookies: {
+      enabled: true,
+      domain: process.env.FRONTEND_URL,
+    },
+    useSecureCookies: true,
     defaultCookieAttributes: {
       sameSite: 'none', // Required for cross-site
       secure: true, // Required when sameSite is 'none' (HTTPS only)
       maxAge: 60 * 60 * 24 * 7, // 7 days
-      domain: process.env.FRONTEND_URL
     },
   },
 });
